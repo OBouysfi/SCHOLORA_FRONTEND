@@ -3,41 +3,77 @@
 import { useState, useEffect } from 'react';
 import { Upload, Check } from 'lucide-react';
 
+interface Language {
+  language?: string;
+  level?: string;
+}
+
 interface PhotoStepProps {
   formData: {
-    photo?: File | string | null;
+    photo?: string | null;
     firstName?: string;
     lastName?: string;
+     subject?: string;
+    languages: Language[];
   };
   errors?: Record<string, string>;
   onUpdate: (data: any) => void;
 }
 
+const STORAGE_KEY = 'tutor_photo';
+
 const PhotoStep = ({ formData, errors = {}, onUpdate }: PhotoStepProps) => {
   const [preview, setPreview] = useState<string | null>(null);
 
+  // Load photo from localStorage on mount
   useEffect(() => {
-    if (formData.photo instanceof File) {
-      const objectUrl = URL.createObjectURL(formData.photo);
-      setPreview(objectUrl);
-      return () => URL.revokeObjectURL(objectUrl);
-    } else if (typeof formData.photo === 'string') {
-      setPreview(formData.photo);
-    } else {
-      setPreview(null);
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      onUpdate({ photo: stored });
+      setPreview(stored);
     }
+  }, []);
+
+  // Update preview whenever formData.photo changes
+  useEffect(() => {
+    setPreview(formData.photo || null);
   }, [formData.photo]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) onUpdate({ photo: file });
+ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  // Validate type
+  const allowedTypes = ['image/jpeg', 'image/png'];
+  if (!allowedTypes.includes(file.type)) {
+    alert('Please upload a valid file (JPEG or PNG)');
+    return;
+  }
+
+  // Validate size (optional, eg: 5MB max)
+  const maxSize = 5 * 1024 * 1024; 
+  if (file.size > maxSize) {
+    alert('File is too large, max 5MB');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    const base64 = reader.result as string;
+    onUpdate({ photo: base64 });
+    localStorage.setItem(STORAGE_KEY, base64);
   };
+  reader.readAsDataURL(file);
+};
+
 
   return (
     <div className="space-y-8">
       <div className="text-center mb-8">
         <h3 className="text-3xl font-bold text-gray-900 mb-4">Profile photo</h3>
-        <p className="text-gray-600 text-lg">Choose a photo that will help learners get to know you.</p>
+        <p className="text-gray-600 text-lg">
+          Choose a photo that will help learners get to know you.
+        </p>
       </div>
 
       <div className="bg-gray-50 rounded-xl p-6">
@@ -55,10 +91,10 @@ const PhotoStep = ({ formData, errors = {}, onUpdate }: PhotoStepProps) => {
               <span className="ml-2 text-sm">🇲🇦</span>
             </h4>
             <p className="text-sm text-gray-600 flex items-center mt-1">
-              📚 Teaches English lessons
+              📚 Teaches {formData.subject || 'your subject here'}
             </p>
             <p className="text-sm text-gray-600 flex items-center mt-1">
-              💬 Speaks English (C1), Albanian (Native)
+              💬 Speaks  {formData.languages?.map(lang => `${lang.language} (${lang.level})`).join(', ') || 'languages'}
             </p>
           </div>
         </div>

@@ -103,59 +103,89 @@ export default function TutorRegistrationPage() {
     return errors;
   };
 
-  const nextStep = async () => {
-    let errors: Record<string, string> = {};
+ const nextStep = async () => {
+  let errors: Record<string, string> = {};
 
-    if (currentStep === 1) errors = validateAboutStep(formData);
-    else if (currentStep === 2) {
-      if (!(formData.photo instanceof File)) errors.photo = 'Please upload a valid file';
-      else {
-        const allowedTypes = ['image/jpeg', 'image/png'];
-        if (!allowedTypes.includes(formData.photo.type)) errors.photo = 'Only JPEG or PNG images are allowed';
-        const maxSizeMB = 5;
-        if (formData.photo.size / 1024 / 1024 > maxSizeMB) errors.photo = `Image must be smaller than ${maxSizeMB}MB`;
+  // Step 1: About
+  if (currentStep === 1) {
+    errors = validateAboutStep(formData);
+  } 
+  // Step 2: Photo
+  else if (currentStep === 2) {
+    if (!formData.photo || (typeof formData.photo !== 'string' && !(formData.photo instanceof File))) {
+      errors.photo = 'Please upload a valid file';
+    } else {
+      let fileType = '';
+      let fileSize = 0;
+
+      if (formData.photo instanceof File) {
+        fileType = formData.photo.type;
+        fileSize = formData.photo.size;
+      } else if (typeof formData.photo === 'string') {
+        const match = formData.photo.match(/^data:(image\/\w+);base64,/);
+        if (match) fileType = match[1];
+        fileSize = (formData.photo.length * 3) / 4;
+      }
+
+      const allowedTypes = ['image/jpeg', 'image/png'];
+      if (!allowedTypes.includes(fileType)) {
+        errors.photo = 'Only JPEG or PNG images are allowed';
+      }
+
+      const maxSizeMB = 5;
+      if (fileSize / 1024 / 1024 > maxSizeMB) {
+        errors.photo = `Image must be smaller than ${maxSizeMB}MB`;
       }
     }
-    if (currentStep === 3) {
-      if (!formData.hasNoCertificate) {
-        if (!formData.certifications || formData.certifications.length === 0) {
-          errors.certifications = 'At least one certificate is required';
-        } else {
-          formData.certifications.forEach((cert, idx) => {
-            if (!cert.subject) errors[`certifications.${idx}.subject`] = `Subject is required for certificate ${idx + 1}`;
-            if (!cert.certification) errors[`certifications.${idx}.certification`] = `Certification is required for certificate ${idx + 1}`;
-            if (!cert.yearsFrom) errors[`certifications.${idx}.yearsFrom`] = `Start year is required for certificate ${idx + 1}`;
-            if (!cert.yearsTo) errors[`certifications.${idx}.yearsTo`] = `End year is required for certificate ${idx + 1}`;
+  } 
+  // Step 3: Certifications
+  else if (currentStep === 3) {
+    if (!formData.hasNoCertificate) {
+      if (!formData.certifications || formData.certifications.length === 0) {
+        errors.certifications = 'At least one certificate is required';
+      } else {
+        formData.certifications.forEach((cert, idx) => {
+          if (!cert.subject) errors[`certifications.${idx}.subject`] = `Subject is required for certificate ${idx + 1}`;
+          if (!cert.certification) errors[`certifications.${idx}.certification`] = `Certification is required for certificate ${idx + 1}`;
+          if (!cert.yearsFrom) errors[`certifications.${idx}.yearsFrom`] = `Start year is required for certificate ${idx + 1}`;
+          if (!cert.yearsTo) errors[`certifications.${idx}.yearsTo`] = `End year is required for certificate ${idx + 1}`;
 
-            // File validation
-            if (!cert.file) {
-              errors[`certifications.${idx}.file`] = 'Please upload a certificate file';
-            } else {
-              const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
-              if (!allowedTypes.includes(cert.file.type)) {
-                errors[`certifications.${idx}.file`] = 'Only JPEG, PNG or PDF files are allowed';
-              }
-              
-              if (cert.file.data) {
-                const sizeInBytes = (cert.file.data.length * 3) / 4; 
-                const maxSizeMB = 5;
-                if (sizeInBytes / 1024 / 1024 > maxSizeMB) {
-                  errors[`certifications.${idx}.file`] = `File must be smaller than ${maxSizeMB}MB`;
-                }
+          if (!cert.file) {
+            errors[`certifications.${idx}.file`] = 'Please upload a certificate file';
+          } else {
+            const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+            if (!allowedTypes.includes(cert.file.type)) {
+              errors[`certifications.${idx}.file`] = 'Only JPEG, PNG or PDF files are allowed';
+            }
+
+            if (cert.file.data) {
+              const sizeInBytes = (cert.file.data.length * 3) / 4;
+              const maxSizeMB = 5;
+              if (sizeInBytes / 1024 / 1024 > maxSizeMB) {
+                errors[`certifications.${idx}.file`] = `File must be smaller than ${maxSizeMB}MB`;
               }
             }
-          });
-        }
+          }
+        });
       }
     }
-    if (Object.keys(errors).length > 0) {
-      setStepErrors(errors);
-      return;
-    } else setStepErrors({});
+  }
 
-    localStorage.setItem('tutorRegistrationDraft', JSON.stringify(formData));
-    if (currentStep < steps.length) setCurrentStep(currentStep + 1);
-  };
+  // If any errors, stop
+  if (Object.keys(errors).length > 0) {
+    setStepErrors(errors);
+    return;
+  } else {
+    setStepErrors({});
+  }
+
+  // Save draft
+  localStorage.setItem('tutorRegistrationDraft', JSON.stringify(formData));
+
+  // Next step
+  if (currentStep < steps.length) setCurrentStep(currentStep + 1);
+};
+
 
   const prevStep = () => {
     if (currentStep > 1) setCurrentStep(currentStep - 1);
